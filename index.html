@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Deepwake Arena</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -34,6 +34,33 @@ canvas{display:block;background:#0d1018;box-shadow:0 0 60px rgba(40,60,120,.35);
 .wave-info{margin-left:auto;text-align:right;color:#d4b86a;font-size:.85rem}
 .wave-info .kills{color:#8a9ab0;font-size:.75rem}
 #pauseHint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:.7rem;color:#4a5a70;pointer-events:none;z-index:5;display:none}
+html,body,#wrap{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#wrap{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+canvas{touch-action:none;width:100%;height:auto}
+#touchUI{position:absolute;inset:0;z-index:8;pointer-events:none;display:none}
+#touchUI.show{display:block}
+#joyZone{position:absolute;left:0;bottom:0;width:48%;height:42%;max-width:280px;max-height:260px;pointer-events:auto;touch-action:none}
+#joyBase{position:absolute;left:50%;bottom:18%;transform:translateX(-50%);width:120px;height:120px;border-radius:50%;background:rgba(20,28,45,.45);border:2px solid rgba(212,184,106,.35);box-shadow:inset 0 0 20px rgba(0,0,0,.35)}
+#joyKnob{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(212,184,106,.55);border:2px solid rgba(212,184,106,.85);box-shadow:0 2px 10px rgba(0,0,0,.4);pointer-events:none}
+#btnZone{position:absolute;right:0;bottom:0;width:52%;height:48%;max-width:320px;max-height:300px;pointer-events:none;touch-action:none}
+.tbtn{position:absolute;pointer-events:auto;touch-action:none;border:1px solid rgba(212,184,106,.55);border-radius:50%;background:rgba(20,28,45,.55);color:#d4b86a;font-size:.72rem;font-weight:600;letter-spacing:.03em;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.15;padding:6px;user-select:none;-webkit-user-select:none;box-shadow:0 2px 12px rgba(0,0,0,.4)}
+.tbtn:active,.tbtn.active{background:rgba(212,184,106,.28);border-color:#d4b86a;transform:scale(.94)}
+.tbtn.light{width:72px;height:72px;right:118px;bottom:108px}
+.tbtn.heavy{width:72px;height:72px;right:28px;bottom:108px}
+.tbtn.dodge{width:64px;height:64px;right:168px;bottom:28px}
+.tbtn.block{width:64px;height:64px;right:88px;bottom:28px}
+.tbtn.mantra{width:64px;height:64px;right:28px;bottom:28px;color:#7ab0ff;border-color:rgba(122,176,255,.55)}
+@media (max-width:520px){
+  #joyBase{width:100px;height:100px}
+  #joyKnob{width:44px;height:44px;margin:-22px 0 0 -22px}
+  .tbtn.light,.tbtn.heavy{width:64px;height:64px}
+  .tbtn.light{right:100px;bottom:96px}
+  .tbtn.heavy{right:22px;bottom:96px}
+  .tbtn.dodge,.tbtn.block,.tbtn.mantra{width:56px;height:56px;font-size:.65rem}
+  .tbtn.dodge{right:140px;bottom:22px}
+  .tbtn.block{right:74px;bottom:22px}
+  .tbtn.mantra{right:18px;bottom:22px}
+}
 </style>
 </head>
 <body>
@@ -60,8 +87,9 @@ canvas{display:block;background:#0d1018;box-shadow:0 0 60px rgba(40,60,120,.35);
       <li><span>Espace / ;</span> Blocage / Parade (timing)</li>
       <li><span>E / F</span> Mantra (projectile)</li>
       <li><span>Échap</span> Pause</li>
+      <li><span>Tactile</span> Joystick + boutons à l'écran (mobile / tablette)</li>
     </ul>
-    <p style="font-size:.8rem;color:#6a7a9a;margin-bottom:14px">Parade juste avant l'impact pour étourdir. Survivez 5 vagues.</p>
+    <p style="font-size:.8rem;color:#6a7a9a;margin-bottom:14px">Parade juste avant l'impact pour étourdir. Survivez 5 vagues. Sur mobile : joystick à gauche, actions à droite.</p>
     <button class="btn" id="playBtn">JOUER</button>
   </div>
 </div>
@@ -87,6 +115,19 @@ canvas{display:block;background:#0d1018;box-shadow:0 0 60px rgba(40,60,120,.35);
     <h1 id="endTitle">DÉFAITE</h1>
     <div class="sub" id="endSub"></div>
     <button class="btn" id="restartBtn">REJOUER</button>
+  </div>
+</div>
+
+<div id="touchUI" aria-hidden="true">
+  <div id="joyZone">
+    <div id="joyBase"><div id="joyKnob"></div></div>
+  </div>
+  <div id="btnZone">
+    <div class="tbtn light" data-act="light">Attaque<br>légère</div>
+    <div class="tbtn heavy" data-act="heavy">Attaque<br>lourde</div>
+    <div class="tbtn dodge" data-act="dodge">Dodge</div>
+    <div class="tbtn block" data-act="block">Parade</div>
+    <div class="tbtn mantra" data-act="mantra">Mantra</div>
   </div>
 </div>
 </div>
@@ -122,6 +163,8 @@ let particles = [];
 let dmgNums = [];
 let keys = {};
 let mouse = {x:0,y:0,down:false,rdown:false};
+let touchKeys = {};
+let joy = {active:false,nx:0,ny:0,pid:null};
 
 const TOTAL_WAVES = 5;
 
@@ -195,6 +238,8 @@ function resetGame(){
   shake = 0;
   hitstop = 0;
   keys = {};
+  touchKeys = {};
+  setJoy(0,0,false);
 }
 
 function waveComposition(w){
@@ -341,7 +386,7 @@ document.getElementById('restartBtn').onclick=()=>{
   resetGame();state='playing';startWave();
 };
 
-function pressed(codes){return codes.some(c=>keys[c])}
+function pressed(codes){return codes.some(c=>keys[c]||touchKeys[c])}
 
 // --- Combat helpers ---
 function tryLight(){
@@ -460,6 +505,12 @@ function hurtEnemy(e,dmg,kb){
 function updatePlayer(dt){
   if(player.dead) return;
   const p=player;
+
+  // Aim from virtual stick when no recent mouse aim
+  if(joy.active && (joy.nx||joy.ny)){
+    mouse.x = p.x + joy.nx * 120;
+    mouse.y = p.y + joy.ny * 120;
+  }
 
   if(p.flash>0) p.flash-=dt;
   if(p.iFrames>0) p.iFrames-=dt;
@@ -929,13 +980,129 @@ function frame(ts){
   requestAnimationFrame(frame);
 }
 
-// Resize canvas to fit window while keeping aspect
+// --- Mobile touch controls ---
+const touchUI = document.getElementById('touchUI');
+const joyZone = document.getElementById('joyZone');
+const joyBase = document.getElementById('joyBase');
+const joyKnob = document.getElementById('joyKnob');
+const ACT_KEY = {light:'KeyJ',heavy:'KeyK',dodge:'KeyL',block:'Space',mantra:'KeyE'};
+
+function wantsTouchUI(){
+  const touch = ('ontouchstart' in window) || (navigator.maxTouchPoints>0) ||
+    (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  const narrow = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+  return !!(touch || narrow);
+}
+function refreshTouchUI(){
+  if(wantsTouchUI()){
+    touchUI.classList.add('show');
+    touchUI.setAttribute('aria-hidden','false');
+  } else {
+    touchUI.classList.remove('show');
+    touchUI.setAttribute('aria-hidden','true');
+    // Clear sticky touch state when hiding
+    touchKeys = {};
+    setJoy(0,0,false);
+    document.querySelectorAll('.tbtn.active').forEach(el=>el.classList.remove('active'));
+  }
+}
+
+function setJoy(nx,ny,active){
+  joy.nx = nx; joy.ny = ny; joy.active = active;
+  const max = 34;
+  joyKnob.style.transform = active ? `translate(${nx*max}px,${ny*max}px)` : '';
+  touchKeys['KeyW'] = touchKeys['KeyZ'] = active && ny < -0.35;
+  touchKeys['KeyS'] = active && ny > 0.35;
+  touchKeys['KeyA'] = touchKeys['KeyQ'] = active && nx < -0.35;
+  touchKeys['KeyD'] = active && nx > 0.35;
+}
+
+function joyFromEvent(e){
+  const r = joyBase.getBoundingClientRect();
+  const cx = r.left + r.width/2, cy = r.top + r.height/2;
+  let dx = e.clientX - cx, dy = e.clientY - cy;
+  const max = r.width * 0.42;
+  const mag = Math.hypot(dx,dy) || 1;
+  if(mag > max){ dx = dx/mag*max; dy = dy/mag*max; }
+  setJoy(dx/max, dy/max, true);
+}
+
+joyZone.addEventListener('pointerdown', e=>{
+  if(e.button!==undefined && e.button!==0) return;
+  e.preventDefault();
+  joyZone.setPointerCapture(e.pointerId);
+  joy.pid = e.pointerId;
+  joyFromEvent(e);
+},{passive:false});
+joyZone.addEventListener('pointermove', e=>{
+  if(joy.pid!==e.pointerId) return;
+  e.preventDefault();
+  joyFromEvent(e);
+},{passive:false});
+function endJoy(e){
+  if(joy.pid!==null && e.pointerId!==joy.pid) return;
+  joy.pid = null;
+  setJoy(0,0,false);
+}
+joyZone.addEventListener('pointerup', endJoy);
+joyZone.addEventListener('pointercancel', endJoy);
+joyZone.addEventListener('lostpointercapture', e=>{ if(joy.pid===e.pointerId) endJoy(e); });
+
+document.querySelectorAll('.tbtn').forEach(btn=>{
+  const act = btn.getAttribute('data-act');
+  const code = ACT_KEY[act];
+  const down = e=>{
+    if(e.button!==undefined && e.button!==0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    btn.classList.add('active');
+    try{ btn.setPointerCapture(e.pointerId); }catch(_){}
+    touchKeys[code] = true;
+  };
+  const up = e=>{
+    btn.classList.remove('active');
+    touchKeys[code] = false;
+  };
+  btn.addEventListener('pointerdown', down, {passive:false});
+  btn.addEventListener('pointerup', up);
+  btn.addEventListener('pointercancel', up);
+  btn.addEventListener('lostpointercapture', up);
+});
+
+// Canvas touch aim + block page scroll/zoom on game area
+function syncMouseFromClient(clientX, clientY){
+  const r = canvas.getBoundingClientRect();
+  const sx = canvas.width/r.width, sy = canvas.height/r.height;
+  mouse.x = (clientX - r.left)*sx;
+  mouse.y = (clientY - r.top)*sy;
+}
+canvas.addEventListener('pointerdown', e=>{
+  if(e.pointerType==='touch' || e.pointerType==='pen'){
+    syncMouseFromClient(e.clientX, e.clientY);
+  }
+});
+canvas.addEventListener('pointermove', e=>{
+  if(e.pointerType==='touch' || e.pointerType==='pen'){
+    if(e.buttons || e.pressure>0) syncMouseFromClient(e.clientX, e.clientY);
+  }
+});
+
+const wrapEl = document.getElementById('wrap');
+wrapEl.addEventListener('touchmove', e=>{
+  // Allow scrolling only inside overlay panels (upgrade/start text)
+  if(e.target.closest && e.target.closest('.panel')) return;
+  e.preventDefault();
+},{passive:false});
+document.addEventListener('gesturestart', e=>e.preventDefault());
+
+// Resize canvas to fit window while keeping aspect (safe areas via #wrap padding)
 function fit(){
   const wrap=document.getElementById('wrap');
   const aw=wrap.clientWidth, ah=wrap.clientHeight;
   const scale=Math.min(aw/W,ah/H);
   canvas.style.width=(W*scale)+'px';
   canvas.style.height=(H*scale)+'px';
+  refreshTouchUI();
 }
 window.addEventListener('resize',fit);
 fit();
